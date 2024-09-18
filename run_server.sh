@@ -11,4 +11,4 @@ rm -rvf messages.db
 pip install -r requirements.txt
 
 # Run the server
-python server/server.py
+python server/app.py

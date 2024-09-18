@@ -59,9 +59,9 @@ def handle_disconnect():
     print('Client disconnected')
 
 def run_server():
+    DatabaseService.init_db()
     clear_cache_periodically.last_clear = time()
     socketio.run(app, host='0.0.0.0', port=5005, allow_unsafe_werkzeug=True)
 
 if __name__ == '__main__':
-    DatabaseService.init_db()
     run_server()
