@@ -36,6 +36,12 @@ class ChatApp(App):
         yield Footer()
         logging.info("UI components composed")
 
+    def on_key(self, event):
+        if event.key == "enter":
+            self.handle_send_message()
+        elif event.key == "ctrl+c":
+            self.exit()
+    
     async def on_mount(self) -> None:
         await self.load_initial_messages()
         self.stream_task = asyncio.create_task(self.stream_messages())
