@@ -5,12 +5,10 @@ from werkzeug.exceptions import BadRequest
 from functools import lru_cache
 from time import time
 import json
+from flask_socketio import SocketIO, emit
 
 app = Flask(__name__)
-
-# SSE message queue
-message_queue = []
-
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Caching
 @lru_cache(maxsize=1)
@@ -27,7 +25,6 @@ def clear_cache_periodically():
         clear_message_count_cache()
         clear_cache_periodically.last_clear = time()
 
-
 # Request handlers
 @app.route('/messages', methods=['POST'])
 def send_message():
@@ -41,7 +38,7 @@ def send_message():
         'sender': data.get('sender', 'unknown')
     }
     DatabaseService.insert_message(message['text'], message['timestamp'], message['sender'])
-    message_queue.append(message)
+    socketio.emit('new_message', message)
     return jsonify({'status': 'Message received'}), 200
 
 @app.route('/messages', methods=['GET'])
@@ -53,20 +50,17 @@ def get_messages():
 def message_count():
     return jsonify({'count': get_cached_message_count()}), 200
 
+@socketio.on('connect')
+def handle_connect():
+    print('Client connected')
 
-@app.route('/stream')
-def stream():
-    def event_stream():
-        while True:
-            if message_queue:
-                message = message_queue.pop(0)
-                yield f"data: {json.dumps(message)}\n\n"
-
-    return Response(event_stream(), content_type='text/event-stream')
+@socketio.on('disconnect')
+def handle_disconnect():
+    print('Client disconnected')
 
 def run_server():
     clear_cache_periodically.last_clear = time()
-    app.run(host='0.0.0.0', port=5005, threaded=True)
+    socketio.run(app, host='0.0.0.0', port=5005, allow_unsafe_werkzeug=True)
 
 if __name__ == '__main__':
     DatabaseService.init_db()

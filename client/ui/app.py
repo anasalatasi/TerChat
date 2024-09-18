@@ -4,11 +4,9 @@ from textual.widgets import Input, Button, Footer, Header, ListView, ListItem
 from textual.widget import Widget
 from services.message_service import client_id, send_message_to_server, get_messages_from_server, get_message_count_from_server
 from ui.message_box import MessageBox
-import asyncio
 import logging
 from datetime import datetime
-import aiohttp
-import json
+import socketio
 
 # Set up logging
 logging.basicConfig(filename=f'chat_app-{datetime.now()}.log', level=logging.INFO, 
@@ -22,7 +20,7 @@ class ChatApp(App):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.last_message_timestamp = None
-        self.stream_task = None
+        self.sio = socketio.AsyncClient()
         logging.info("ChatApp initialized")
 
     def compose(self) -> ComposeResult:
@@ -44,8 +42,8 @@ class ChatApp(App):
     
     async def on_mount(self) -> None:
         await self.load_initial_messages()
-        self.stream_task = asyncio.create_task(self.stream_messages())
-        logging.info("App mounted, initial messages loaded, and streaming task created")
+        await self.setup_socketio()
+        logging.info("App mounted, initial messages loaded, and SocketIO setup complete")
 
     async def load_initial_messages(self) -> None:
         messages = get_messages_from_server()
@@ -54,22 +52,27 @@ class ChatApp(App):
         self.message_list.scroll_end(animate=True)
         logging.info(f"Loaded {len(messages)} initial messages")
         
-    async def stream_messages(self):
-        logging.info("Starting stream_messages")
-        async with aiohttp.ClientSession() as session:
-            try:
-                logging.info("Attempting to connect to stream")
-                async with session.get('http://localhost:5005/stream') as response:
-                    async for line in response.content:
-                        if line.startswith(b'data: '):
-                            message = json.loads(line[6:].decode('utf-8'))
-                            logging.info(line)
-                            if message['sender'] != client_id:
-                                await self.update_messages([message])
-            except aiohttp.ClientError as e:
-                logging.error(f"Connection error: {str(e)}")
-            finally:
-                logging.info("stream_messages finished")
+    async def setup_socketio(self):
+        logging.info("Setting up SocketIO")
+        
+        @self.sio.event
+        async def connect():
+            logging.info("Connected to SocketIO server")
+
+        @self.sio.event
+        async def disconnect():
+            logging.info("Disconnected from SocketIO server")
+
+        @self.sio.on('new_message')
+        async def on_new_message(data):
+            logging.info(f"Received new message: {data}")
+            if data['sender'] != client_id:
+                await self.update_messages([data])
+
+        try:
+            await self.sio.connect('http://localhost:5005')
+        except Exception as e:
+            logging.error(f"Failed to connect to SocketIO server: {str(e)}")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "send_button":
