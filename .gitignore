@@ -1,3 +1,4 @@
 **/__pycache__/
 venv
 messages.db
+chat_app-*.log

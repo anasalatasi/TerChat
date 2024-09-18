@@ -5,6 +5,8 @@ if [ -d "venv" ]; then
     source venv/bin/activate
 fi
 
+rm -rvf messages.db
+
 # Install requirements
 pip install -r requirements.txt
 
