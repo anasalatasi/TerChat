@@ -31,7 +31,7 @@ def message_count():
     return jsonify({'count': count}), 200
 
 def run_server():
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5005)
 
 if __name__ == '__main__':
     DatabaseService.init_db()
