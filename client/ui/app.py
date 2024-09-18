@@ -8,7 +8,7 @@ from ui.message_box import MessageBox
 class ChatApp(App):
     TITLE = "TerChat"
     SUB_TITLE = "Chat directly in your terminal"
-    CSS_PATH = "../../static/styles.css"
+    CSS_PATH = "../static/styles.css"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
