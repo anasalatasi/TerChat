@@ -1,6 +1,6 @@
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal
-from textual.widgets import Input, Button, Footer, Header
+from textual.widgets import Input, Button, Footer, Header, ListView, ListItem
 from textual.widget import Widget
 from services.message_service import client_id, send_message_to_server, get_messages_from_server, get_message_count_from_server
 from ui.message_box import MessageBox
@@ -16,7 +16,8 @@ class ChatApp(App):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Container(id="conversation_box")
+        self.message_list = ListView(id="conversation_box")
+        yield self.message_list
         with Horizontal(id="input_box"):
             yield Button(label="Message Count", variant="warning", id="count_button")
             yield Input(placeholder="Enter your message", id="message_input")
@@ -55,9 +56,11 @@ class ChatApp(App):
         message_input.value = ""
         
         conversation_box = self.query_one("#conversation_box")
-        conversation_box.mount(MessageBox(message, "my_message"))
-        conversation_box.scroll_end(animate=False)
+        
+        self.message_list.append(ListItem(MessageBox(message, "my_message")))
         self.toggle_widgets(message_input, self.query_one("#send_button"))
+        
+        conversation_box.scroll_end(animate=True)
 
     def handle_message_count(self) -> None:
         message_count = get_message_count_from_server()
