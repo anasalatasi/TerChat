@@ -2,7 +2,7 @@ from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal
 from textual.widgets import Input, Button, Footer, Header
 from textual.widget import Widget
-from services.message_service import send_message_to_server, get_messages_from_server, get_message_count_from_server
+from services.message_service import client_id, send_message_to_server, get_messages_from_server, get_message_count_from_server
 from ui.message_box import MessageBox
 
 class ChatApp(App):
@@ -30,7 +30,7 @@ class ChatApp(App):
         new_messages = get_messages_from_server()
         if new_messages:
             if self.last_message_timestamp:
-                new_messages_to_add = [msg for msg in new_messages if msg['timestamp'] > self.last_message_timestamp and msg['text'].strip()]
+                new_messages_to_add = [msg for msg in new_messages if msg['timestamp'] > self.last_message_timestamp and msg['text'].strip() and msg['sender'] != client_id] 
             else:
                 new_messages_to_add = [msg for msg in new_messages if msg['text'].strip()]
 

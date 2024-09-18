@@ -1,9 +1,12 @@
 import requests
+import uuid
 
 server_url = 'http://localhost:5000'
+client_id = str(uuid.uuid4())
+
 
 def send_message_to_server(text):
-    response = requests.post(f'{server_url}/messages', json={'text': text})
+    response = requests.post(f'{server_url}/messages', json={'text': text, 'sender': client_id})
     return 'Message sent successfully.' if response.status_code == 200 else 'Failed to send message.'
 
 def get_messages_from_server():

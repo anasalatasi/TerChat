@@ -11,7 +11,8 @@ def send_message():
     data = request.get_json()
     message = {
         'text': data['text'],
-        'timestamp': datetime.now().isoformat()
+        'timestamp': datetime.now().isoformat(),
+        'sender': data.get('sender', 'unknown')
     }
     messages.append(message)
     return jsonify({'status': 'Message received'}), 200
