@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request, Response
 from datetime import datetime
-from server.db_service import DatabaseService
+from db_service import DatabaseService
 from werkzeug.exceptions import BadRequest
 from functools import lru_cache
 from time import time
