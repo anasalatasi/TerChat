@@ -2,7 +2,12 @@ from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal
 from textual.widgets import Input, Button, Footer, Header, ListView, ListItem, Switch
 from textual.widget import Widget
-from services.message_service import client_id, send_message_to_server, get_messages_from_server, get_message_count_from_server
+from services.message_service import (
+    client_id,
+    send_message_to_server,
+    get_messages_from_server,
+    get_message_count_from_server,
+)
 from ui.message_box import MessageBox
 import logging
 from datetime import datetime
@@ -10,19 +15,24 @@ import socketio
 import hashlib
 
 # Set up logging
-logging.basicConfig(filename=f'chat_app-{datetime.now()}.log', level=logging.INFO, 
-                    format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    filename=f"chat_app-{datetime.now()}.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+
 
 def generate_color_from_id(client_id: str) -> str:
     hash_object = hashlib.sha256(client_id.encode())
     color = f"#{hash_object.hexdigest()[:6]}"
     return color
 
+
 class ChatApp(App):
     TITLE = "TerChat"
     SUB_TITLE = "Chat directly in your terminal"
     CSS_PATH = "../static/styles.css"
-    
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.last_message_timestamp = None
@@ -34,22 +44,24 @@ class ChatApp(App):
         self.message_list = ListView(id="conversation_box")
         yield self.message_list
         with Horizontal(id="input_box"):
-            yield  Switch(animate=False, value=True, id="theme_switch")
+            yield Switch(animate=False, value=True, id="theme_switch")
             yield Button(label="Message Count", variant="warning", id="count_button")
-            self.message_input = Input(placeholder="Enter your message", id="message_input")
+            self.message_input = Input(
+                placeholder="Enter your message", id="message_input"
+            )
             yield self.message_input
             yield Button(label="Send", variant="success", id="send_button")
         yield Footer()
         logging.info("UI components composed")
-    
+
     def on_input_submitted(self, event: Input.Submitted) -> None:
         self.handle_send_message()
-                
+
     def on_switch_changed(self, event: Switch.Changed) -> None:
         self.dark = not self.dark
         self.is_dark_mode = event.switch.value
         self.toggle_theme()
-            
+
     def toggle_theme(self):
         if self.is_dark_mode:
             self.remove_class("light-mode")
@@ -63,18 +75,32 @@ class ChatApp(App):
     async def on_mount(self) -> None:
         await self.load_initial_messages()
         await self.setup_socketio()
-        logging.info("App mounted, initial messages loaded, and SocketIO setup complete")
+        logging.info(
+            "App mounted, initial messages loaded, and SocketIO setup complete"
+        )
 
     async def load_initial_messages(self) -> None:
         messages = get_messages_from_server()
         for msg in messages:
-            self.message_list.append(ListItem(MessageBox(msg['text'], "my_message" if msg['sender'] == client_id else "others_message", generate_color_from_id(msg['sender']) )))
+            self.message_list.append(
+                ListItem(
+                    MessageBox(
+                        msg["text"],
+                        (
+                            "my_message"
+                            if msg["sender"] == client_id
+                            else "others_message"
+                        ),
+                        generate_color_from_id(msg["sender"]),
+                    )
+                )
+            )
         self.message_list.scroll_end(animate=True)
         logging.info(f"Loaded {len(messages)} initial messages")
-        
+
     async def setup_socketio(self):
         logging.info("Setting up SocketIO")
-        
+
         @self.sio.event
         async def connect():
             logging.info("Connected to SocketIO server")
@@ -83,14 +109,14 @@ class ChatApp(App):
         async def disconnect():
             logging.info("Disconnected from SocketIO server")
 
-        @self.sio.on('new_message')
+        @self.sio.on("new_message")
         async def on_new_message(data):
             logging.info(f"Received new message: {data}")
-            if data['sender'] != client_id:
+            if data["sender"] != client_id:
                 await self.update_messages([data])
 
         try:
-            await self.sio.connect('http://localhost:5005')
+            await self.sio.connect("http://localhost:5005")
         except Exception as e:
             logging.error(f"Failed to connect to SocketIO server: {str(e)}")
 
@@ -107,17 +133,41 @@ class ChatApp(App):
             return
 
         self.toggle_widgets(message_input, self.query_one("#send_button"))
-        send_message_to_server(message)
-        message_input.value = ""
-        
-        self.message_list.append(ListItem(MessageBox(message, "my_message", generate_color_from_id(client_id) )))
+
+        result = send_message_to_server(message)
+
+        if result == "Connection to the server failed.":
+            self.show_error_message(
+                "Server connection failed. Please try to reconnect."
+            )
+        else:
+            message_input.value = ""
+            self.message_list.append(
+                ListItem(
+                    MessageBox(message, "my_message", generate_color_from_id(client_id))
+                )
+            )
+            self.message_list.scroll_end(animate=True)
+            logging.info(f"Message sent: {message}")
+
         self.toggle_widgets(message_input, self.query_one("#send_button"))
-        
+
+    def show_error_message(self, message: str):
+        self.message_list.append(
+            ListItem(MessageBox(message, "error_message", "#FF0000"))
+        )
         self.message_list.scroll_end(animate=True)
-        logging.info(f"Message sent: {message}")
-        
-        self.message_input.focus()
-    
+
+    def handle_reconnect(self) -> None:
+        # Try to reconnect to the server
+        try:
+            self.sio.connect("http://localhost:5005")
+            self.show_error_message("Reconnected to the server.")
+            logging.info("Reconnected to server.")
+        except Exception as e:
+            self.show_error_message("Reconnection failed. Please try again.")
+            logging.error(f"Reconnection failed: {str(e)}")
+
     def handle_message_count(self) -> None:
         message_count = get_message_count_from_server()
         if message_count is not None:
@@ -132,6 +182,14 @@ class ChatApp(App):
 
     async def update_messages(self, new_messages):
         for msg in new_messages:
-            self.message_list.append(ListItem(MessageBox(msg['text'], "others_message", generate_color_from_id(msg['sender']) )))
+            self.message_list.append(
+                ListItem(
+                    MessageBox(
+                        msg["text"],
+                        "others_message",
+                        generate_color_from_id(msg["sender"]),
+                    )
+                )
+            )
         self.message_list.scroll_end(animate=True)
         logging.info(f"Updated messages with {len(new_messages)} new messages")
