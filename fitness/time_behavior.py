@@ -1,24 +1,59 @@
-import time
-import statistics
 import requests
+import time
+import concurrent.futures
+import socketio
 
-response_times = []
+BASE_URL = "http://localhost:5005"
 
-# Simulate sending multiple requests and recording response times
-for _ in range(100):  # You can change the sample size
+def send_message(text, sender):
+    response = requests.post(f"{BASE_URL}/messages", json={"text": text, "sender": sender})
+    return response.status_code == 200
+
+def get_messages():
+    response = requests.get(f"{BASE_URL}/messages")
+    return response.status_code == 200
+
+def get_message_count():
+    response = requests.get(f"{BASE_URL}/messages/count")
+    return response.status_code == 200
+
+def test_socket_connection():
+    sio = socketio.Client()
+    try:
+        sio.connect(BASE_URL)
+        time.sleep(1)
+        sio.disconnect()
+        return True
+    except Exception as e:
+        print(f"Socket connection error: {e}")
+        return False
+
+def run_load_test(num_requests, num_threads):
     start_time = time.time()
-    response = requests.post(
-        f"http://192.168.31.171:5005/messages",
-        json={"text": "Test", "sender": 0},
-    )
-    elapsed_time = time.time() - start_time
-    response_times.append(elapsed_time)
 
-# Calculate average, max, and standard deviation
-average_time = sum(response_times) / len(response_times)
-max_time = max(response_times)
-std_deviation = statistics.stdev(response_times)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
+        futures = []
+        for i in range(num_requests):
+            futures.append(executor.submit(send_message, f"Test message {i}", f"Sender {i}"))
+            futures.append(executor.submit(get_messages))
+            futures.append(executor.submit(get_message_count))
+        
+        if i % 10 == 0:
+            futures.append(executor.submit(test_socket_connection))
 
-print(f"Average Response Time: {average_time} seconds")
-print(f"Max Response Time: {max_time} seconds")
-print(f"Standard Deviation: {std_deviation} seconds")
+        results = [future.result() for future in concurrent.futures.as_completed(futures)]
+
+    end_time = time.time()
+    success_rate = sum(results) / len(results) * 100
+    total_time = end_time - start_time
+    requests_per_second = num_requests / total_time
+
+    print(f"Load Test Results:")
+    print(f"Total Requests: {num_requests}")
+    print(f"Number of Threads: {num_threads}")
+    print(f"Success Rate: {success_rate:.2f}%")
+    print(f"Total Time: {total_time:.2f} seconds")
+    print(f"Requests per Second: {requests_per_second:.2f}")
+
+if __name__ == "__main__":
+    run_load_test(num_requests=10000, num_threads=10)
