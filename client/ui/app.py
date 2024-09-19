@@ -7,10 +7,16 @@ from ui.message_box import MessageBox
 import logging
 from datetime import datetime
 import socketio
+import hashlib
 
 # Set up logging
 logging.basicConfig(filename=f'chat_app-{datetime.now()}.log', level=logging.INFO, 
                     format='%(asctime)s - %(levelname)s - %(message)s')
+
+def generate_color_from_id(client_id: str) -> str:
+    hash_object = hashlib.sha256(client_id.encode())
+    color = f"#{hash_object.hexdigest()[:6]}"
+    return color
 
 class ChatApp(App):
     TITLE = "TerChat"
@@ -53,8 +59,7 @@ class ChatApp(App):
             self.remove_class("dark-mode")
             self.add_class("light-mode")
             logging.info("Switched to Light Mode")
-    
-    
+
     async def on_mount(self) -> None:
         await self.load_initial_messages()
         await self.setup_socketio()
@@ -63,7 +68,7 @@ class ChatApp(App):
     async def load_initial_messages(self) -> None:
         messages = get_messages_from_server()
         for msg in messages:
-            self.message_list.append(ListItem(MessageBox(msg['text'], "my_message" if msg['sender'] == client_id else "others_message")))
+            self.message_list.append(ListItem(MessageBox(msg['text'], "my_message" if msg['sender'] == client_id else "others_message", generate_color_from_id(msg['sender']) )))
         self.message_list.scroll_end(animate=True)
         logging.info(f"Loaded {len(messages)} initial messages")
         
@@ -105,7 +110,7 @@ class ChatApp(App):
         send_message_to_server(message)
         message_input.value = ""
         
-        self.message_list.append(ListItem(MessageBox(message, "my_message")))
+        self.message_list.append(ListItem(MessageBox(message, "my_message", generate_color_from_id(client_id) )))
         self.toggle_widgets(message_input, self.query_one("#send_button"))
         
         self.message_list.scroll_end(animate=True)
@@ -127,6 +132,6 @@ class ChatApp(App):
 
     async def update_messages(self, new_messages):
         for msg in new_messages:
-            self.message_list.append(ListItem(MessageBox(msg['text'], "others_message")))
+            self.message_list.append(ListItem(MessageBox(msg['text'], "others_message", generate_color_from_id(msg['sender']) )))
         self.message_list.scroll_end(animate=True)
         logging.info(f"Updated messages with {len(new_messages)} new messages")

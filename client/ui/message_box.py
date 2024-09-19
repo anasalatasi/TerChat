@@ -3,10 +3,13 @@ from textual.widgets import Static
 from textual.app import ComposeResult
 
 class MessageBox(Widget):
-    def __init__(self, text: str, role: str) -> None:
+    def __init__(self, text: str, role: str, color: str) -> None:
         self.text = text
         self.role = role
+        self.color = color
         super().__init__()
 
     def compose(self) -> ComposeResult:
-        yield Static(self.text, classes=f"message {self.role}")
+        message = Static(self.text, classes=f"message {self.role}")
+        message.styles.background = self.color
+        yield message
