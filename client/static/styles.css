@@ -2,7 +2,57 @@ MessageBox {
     layout: horizontal;
     height: auto;
     align-horizontal: center;
+    
 }
+
+/* Dark Mode */
+.dark-mode .message {
+    background: #343a40;
+    color: white;
+}
+
+.dark-mode .my_message {
+    margin: 1 25 1 0;
+}
+
+.dark-mode .others_message {
+    margin: 1 0 1 25;
+}
+
+.dark-mode #input_box {
+    background: #343a40;
+    color: white;
+}
+
+.dark-mode #message_input {
+    background: #343a40;
+    color: white;
+}
+
+/* Light Mode */
+.light-mode .message {
+    background: #f5f5f5;
+    color: black;
+}
+
+.light-mode .my_message {
+    margin: 1 25 1 0;
+}
+
+.light-mode .others_message {
+    margin: 1 0 1 25;
+}
+
+.light-mode #input_box {
+    background: #ffffff;
+    color: black;
+}
+
+.light-mode #message_input {
+    background: #ffffff;
+    color: black;
+}
+
 
 .message {
     width: auto;

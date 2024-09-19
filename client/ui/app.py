@@ -1,6 +1,6 @@
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal
-from textual.widgets import Input, Button, Footer, Header, ListView, ListItem
+from textual.widgets import Input, Button, Footer, Header, ListView, ListItem, Switch
 from textual.widget import Widget
 from services.message_service import client_id, send_message_to_server, get_messages_from_server, get_message_count_from_server
 from ui.message_box import MessageBox
@@ -28,17 +28,32 @@ class ChatApp(App):
         self.message_list = ListView(id="conversation_box")
         yield self.message_list
         with Horizontal(id="input_box"):
+            yield  Switch(animate=False, value=True, id="theme_switch")
             yield Button(label="Message Count", variant="warning", id="count_button")
-            yield Input(placeholder="Enter your message", id="message_input")
+            self.message_input = Input(placeholder="Enter your message", id="message_input")
+            yield self.message_input
             yield Button(label="Send", variant="success", id="send_button")
         yield Footer()
         logging.info("UI components composed")
-
-    def on_key(self, event):
-        if event.key == "enter":
-            self.handle_send_message()
-        elif event.key == "ctrl+c":
-            self.exit()
+    
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        self.handle_send_message()
+                
+    def on_switch_changed(self, event: Switch.Changed) -> None:
+        self.dark = not self.dark
+        self.is_dark_mode = event.switch.value
+        self.toggle_theme()
+            
+    def toggle_theme(self):
+        if self.is_dark_mode:
+            self.remove_class("light-mode")
+            self.add_class("dark-mode")
+            logging.info("Switched to Dark Mode")
+        else:
+            self.remove_class("dark-mode")
+            self.add_class("light-mode")
+            logging.info("Switched to Light Mode")
+    
     
     async def on_mount(self) -> None:
         await self.load_initial_messages()
@@ -95,7 +110,9 @@ class ChatApp(App):
         
         self.message_list.scroll_end(animate=True)
         logging.info(f"Message sent: {message}")
-
+        
+        self.message_input.focus()
+    
     def handle_message_count(self) -> None:
         message_count = get_message_count_from_server()
         if message_count is not None:
