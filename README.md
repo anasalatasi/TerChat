@@ -89,20 +89,34 @@ pip install -r requirements.txt
 
 ## 💻 **Running the Application**
 
-### **Running the Server**
+### **Running the Server** 🖥️
 
 The `run_server.sh` script handles setting up the server, clearing the old database, and starting the Flask server.
 
 To start the server:
 
 ```bash
-./run_client.sh
+./run_server.sh
 ```
 
 - This script:
     - Activates the virtual environment.
+    - Removes the existing messages.db database.
     - Installs the required dependencies.
-    - Launches the client in the terminal.
+    - Launches the server on http://localhost:5005.
+
+### **Running the Client** 💬
+
+Once the server is running, use the `run_client.sh` script to start the client:
+
+```bash
+./run_client.sh
+```
+  - This script:
+      - Activates the virtual environment.
+      - nstalls the required dependencies.
+      - Launches the client in the terminal.
+
 
 The client communicates with the server using real-time SocketIO for seamless messaging.
 
@@ -136,6 +150,5 @@ This script runs the tests with coverage tracking and generates a detailed cover
 - **Textual**: A TUI (Text User Interface) library used for the client's terminal interface.
 - **SQLite**: Lightweight database for message storage.
 - **Pytest & Unittest**: Used for testing and ensuring maintainability.
-- **Coverage.py**: Used to measure the test coverage.
-
+  
 ---
