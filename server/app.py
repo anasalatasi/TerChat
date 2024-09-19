@@ -21,11 +21,6 @@ def clear_message_count_cache():
     get_cached_message_count.cache_clear()
 
 
-@app.before_first_request
-def init_cache_clear_timestamp():
-    clear_cache_periodically.last_clear = time()
-
-
 # Clear cache every 2 seconds
 @app.before_request
 def clear_cache_periodically():
