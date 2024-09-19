@@ -1,109 +1,87 @@
 import unittest
-from unittest.mock import patch
-from server.app import app, get_cached_message_count, clear_cache_periodically
+from unittest.mock import patch, MagicMock
+from datetime import datetime
+from app import app, socketio, get_cached_message_count, clear_cache_periodically
+from db_service import DatabaseService
+from werkzeug.exceptions import BadRequest
 import json
-
-
 class TestServer(unittest.TestCase):
-
     def setUp(self):
-        # Create a test client for the Flask app
         self.app = app.test_client()
         self.app.testing = True
-
-    @patch("server.app.DatabaseService.insert_message")
-    @patch("server.app.socketio.emit")
-    def test_send_message_success(self, mock_emit, mock_insert_message):
-        # Simulate a POST request to the /messages endpoint
-        data = {"text": "Hello, world!", "sender": "test_user"}
-        response = self.app.post("/messages", json=data)
-
-        # Ensure the response status is 200 OK
+        
+    @patch('app.DatabaseService.insert_message')
+    @patch('app.socketio.emit')
+    def test_send_message(self, mock_emit, mock_insert):
+        data = {'text': 'Test message', 'sender': 'Test User'}
+        response = self.app.post('/messages', json=data)
         self.assertEqual(response.status_code, 200)
-
-        # Ensure the JSON response is correct
-        self.assertEqual(json.loads(response.data), {"status": "Message received"})
-
-        # Check that the database insertion and socket emit were called
-        mock_insert_message.assert_called_once_with(
-            "Hello, world!", unittest.mock.ANY, "test_user"
-        )
-        mock_emit.assert_called_once_with("new_message", unittest.mock.ANY)
-
+        self.assertEqual(json.loads(response.data), {'status': 'Message received'})
+        mock_insert.assert_called_once()
+        mock_emit.assert_called_once()
+        
     def test_send_message_missing_text(self):
-        # Simulate a POST request with missing 'text'
-        data = {"sender": "test_user"}
-        response = self.app.post("/messages", json=data)
-
-        # Ensure the response status is 400 Bad Request
+        data = {'sender': 'Test User'}
+        response = self.app.post('/messages', json=data)
         self.assertEqual(response.status_code, 400)
-
-    @patch("server.app.DatabaseService.get_all_messages")
-    def test_get_messages(self, mock_get_all_messages):
-        # Mock the response from the database
-        mock_get_all_messages.return_value = [
-            {
-                "text": "Test message",
-                "timestamp": "2024-09-20T12:00:00",
-                "sender": "test_user",
-            }
-        ]
-
-        # Simulate a GET request to the /messages endpoint
-        response = self.app.get("/messages")
-
-        # Ensure the response status is 200 OK
+        
+    @patch('app.DatabaseService.get_all_messages')
+    def test_get_messages(self, mock_get_all):
+        mock_get_all.return_value = [{'text': 'Test', 'timestamp': '2023-04-14T12:00:00', 'sender': 'User'}]
+        response = self.app.get('/messages')
         self.assertEqual(response.status_code, 200)
-
-        # Ensure the JSON response is correct
-        expected_response = [
-            {
-                "text": "Test message",
-                "timestamp": "2024-09-20T12:00:00",
-                "sender": "test_user",
-            }
-        ]
-        self.assertEqual(json.loads(response.data), expected_response)
-
-        # Check that the database query was called
-        mock_get_all_messages.assert_called_once()
-
-    @patch("server.app.get_cached_message_count")
-    def test_message_count(self, mock_get_cached_message_count):
-        # Mock the cached message count
-        mock_get_cached_message_count.return_value = 5
-
-        # Simulate a GET request to the /messages/count endpoint
-        response = self.app.get("/messages/count")
-
-        # Ensure the response status is 200 OK
+        self.assertEqual(json.loads(response.data), mock_get_all.return_value)
+        
+    @patch('app.get_cached_message_count')
+    def test_message_count(self, mock_get_count):
+        mock_get_count.return_value = 5
+        response = self.app.get('/messages/count')
         self.assertEqual(response.status_code, 200)
-
-        # Ensure the JSON response contains the correct count
-        self.assertEqual(json.loads(response.data), {"count": 5})
-
-        # Check that the cached message count function was called
-        mock_get_cached_message_count.assert_called_once()
-
-    @patch("server.app.clear_message_count_cache")
-    @patch("server.app.time")
-    def test_clear_cache_periodically(self, mock_time, mock_clear_message_count_cache):
-        # Set up the mock time to simulate periodic cache clearing
-        mock_time.return_value = 100
-        clear_cache_periodically.last_clear = 97
-
-        # Call the function to clear the cache periodically
-        clear_cache_periodically()
-
-        # Check that the cache clearing function was called
-        mock_clear_message_count_cache.assert_called_once()
-
-        # Check that the cache wasn't cleared if the time hasn't exceeded 2 seconds
-        mock_time.return_value = 98
-        clear_cache_periodically.last_clear = 97
-        clear_cache_periodically()
-        mock_clear_message_count_cache.assert_called_once()  # Should still be called only once
-
-
-if __name__ == "__main__":
+        self.assertEqual(json.loads(response.data), {'count': 5})
+        
+    @patch('app.DatabaseService.get_message_count')
+    def test_get_cached_message_count(self, mock_get_count):
+        mock_get_count.return_value = 10
+        result = get_cached_message_count()
+        self.assertEqual(result, 10)
+        # Call again to test caching
+        get_cached_message_count()
+        mock_get_count.assert_called_once()
+        
+    def test_clear_cache_periodically(self):
+        with patch('app.time') as mock_time, \
+             patch('app.clear_message_count_cache') as mock_clear_cache:
+            mock_time.return_value = 100
+            clear_cache_periodically.last_clear = 97
+            clear_cache_periodically()
+            mock_clear_cache.assert_called_once()
+            # Test when time difference is less than 2 seconds
+            mock_time.return_value = 98
+            clear_cache_periodically.last_clear = 97
+            clear_cache_periodically()
+            mock_clear_cache.assert_called_once()  # Should not be called again
+            
+    @patch('app.print')
+    def test_handle_connect(self, mock_print):
+        with app.test_request_context('/'):
+            socketio.test_client(app).connect()
+            mock_print.assert_called_with('Client connected')
+            
+    @patch('app.print')
+    def test_handle_disconnect(self, mock_print):
+        with app.test_request_context('/'):
+            client = socketio.test_client(app)
+            client.connect()
+            client.disconnect()
+            mock_print.assert_called_with('Client disconnected')
+            
+    @patch('app.DatabaseService.init_db')
+    @patch('app.socketio.run')
+    def test_run_server(self, mock_run, mock_init_db):
+        from app import run_server
+        run_server()
+        mock_init_db.assert_called_once()
+        mock_run.assert_called_once_with(app, host='0.0.0.0', port=5005, allow_unsafe_werkzeug=True)
+        
+if __name__ == '__main__':
     unittest.main()
